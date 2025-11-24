@@ -8,29 +8,26 @@ SKYBLUE='\033[0;36m'
 BLUE='\033[0;34m'
 PLAIN='\033[0m'
 
-# --- 1. System Preparation (Ubuntu 24.04 Fix) ---
-# Kita install library yang sering hilang di Ubuntu Minimal
+# --- 1. JURUS PAMUNGKAS: Install via Official Repository ---
+# Ini akan memastikan speedtest cocok 100% dengan Ubuntu 24.04
+echo -e "${YELLOW}Installing Official Speedtest from Repo...${PLAIN}"
+
 if [ -f /etc/debian_version ]; then
     export DEBIAN_FRONTEND=noninteractive
-    # Update repo sekilas
+    # Install syarat utama
     apt-get update -q >/dev/null 2>&1
-    # Install dependencies penting: libidn2-0 wajib untuk Ookla Speedtest
-    apt-get install -y wget curl tar libidn2-0 ca-certificates >/dev/null 2>&1
-fi
-
-# --- 2. Install Speedtest Binary ---
-# Hapus yang lama biar fresh
-rm -f speedtest speedtest.tgz
-
-# Download dengan verbose check
-wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
-
-if [ -f speedtest.tgz ]; then
-    tar -zxf speedtest.tgz speedtest
-    chmod +x speedtest
-    rm speedtest.tgz speedtest.md speedtest.5 2>/dev/null
-else
-    echo "Error: Gagal download speedtest binary. Cek koneksi internet VPS."
+    apt-get install -y curl gnupg1 apt-transport-https dirmngr >/dev/null 2>&1
+    
+    # Hapus versi lama/rusak
+    rm -rf /etc/apt/sources.list.d/speedtest.list
+    apt-get remove -y speedtest >/dev/null 2>&1
+    rm -f speedtest speedtest.tgz
+    
+    # Tambahkan Repo Resmi Ookla
+    curl -s https://install.speedtest.net/app/cli/install.deb.sh | bash >/dev/null 2>&1
+    
+    # Install Binary
+    apt-get install -y speedtest >/dev/null 2>&1
 fi
 
 clear
@@ -51,7 +48,7 @@ echo "\_| \_/\__,_|_|_|     "
 echo -e "${PLAIN}"
 next
 echo -e " A Bench.sh Script By kuli-korporat"
-echo -e " Version            : ${GREEN}v2025-11-24 (V11 Compatibility Fix)${PLAIN}"
+echo -e " Version            : ${GREEN}v2025-11-24 (V12 Native Install)${PLAIN}"
 echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
@@ -71,7 +68,7 @@ disk_used=$(df -h / | awk '/\// {print $3" Used"}')
 ram_total=$(free -h | awk '/^Mem:/ {print $2}')
 ram_used=$(free -h | awk '/^Mem:/ {print $3" Used"}')
 swap_total=$(free -h | awk '/^Swap:/ {print $2}')
-swap_used=$(free -h | awk '/^Swap:/ {print $3" Used"}')
+swap_used=$(free -h | awk '/^Swap:/ {print $2}')
 
 uptime=$(uptime -p | sed 's/up //')
 load=$(uptime | awk -F'load average:' '{ print $2 }' | sed 's/^[ \t]*//')
@@ -143,23 +140,23 @@ speed_test() {
     
     if [[ -n "$serverId" ]]; then args="$args -s $serverId"; fi
 
-    # Cek apakah file binary ada
-    if [ ! -f "./speedtest" ]; then
-         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "No Binary" "Error" "Error"
+    # Cek apakah command speedtest terinstall di system
+    if ! command -v speedtest &> /dev/null; then
+         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Not Installed" "Error" "Error"
          return
     fi
 
-    # Execute
-    output=$(./speedtest $args 2>/dev/null)
+    # Execute (Langsung panggil command system, bukan ./)
+    output=$(speedtest $args 2>/dev/null)
 
     if [[ -n "$output" ]]; then
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
         dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
         ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
         
-        # Jika output JSON kosong (berarti error koneksi)
+        # Validasi jika output kosong
         if [[ -z "$ping" ]]; then
-             printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Error" "Error" "Timeout"
+             printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Error" "Fail" "Timeout"
              return
         fi
 
@@ -180,9 +177,6 @@ speed_test "Singapore, SG" "13623"
 speed_test "Hongkong, CN" "13538"      
 speed_test "Tokyo, JP" "15047"         
 speed_test "Los Angeles, US" "17381"   
-
-# Cleanup
-rm speedtest speedtest.tgz 2>/dev/null
 
 next
 duration=$SECONDS
