@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# KULI-KORPORAT SERVER BENCHMARK PRO
+# KULI-KORPORAT SERVER
 # Modern, Clean, Professional.
 #
 
