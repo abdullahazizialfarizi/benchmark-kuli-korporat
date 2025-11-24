@@ -18,7 +18,7 @@ echo "|    \| | | | | |     "
 echo "| |\  \ |_| | | |     "
 echo "\_| \_/\__,_|_|_|     "
 echo -e "${NC}"
-echo -e " SERVER BENCHMARK V4.0 (Auto-Fix)"
+echo -e " SERVER BENCHMARK V5.0 (Official Engine)"
 echo -e " https://github.com/abdullahazizialfarizi"
 echo "------------------------------------------------------------------"
 
@@ -51,50 +51,63 @@ for i in {1..3}; do
 done
 echo "------------------------------------------------------------------"
 
-# --- 3. NETWORK SPEEDTEST ---
+# --- 3. NETWORK SPEEDTEST (OFFICIAL BINARY) ---
 echo -e " ${GREEN}[ Testing Network Speed ]${NC}"
 
-# Install Python3 jika belum ada
-if ! command -v python3 &> /dev/null; then
-    echo " Installing Python3..."
-    apt-get update -q && apt-get install -y python3 -q
-fi
+# Download Official Speedtest Binary (Linux x86_64)
+# Ini jauh lebih stabil daripada python script
+wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
 
-# Download script speedtest
-curl -s -L -o speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest.py
-chmod +x speedtest-cli
+# Extract hanya file binary-nya
+tar -zxf speedtest.tgz speedtest
+chmod +x speedtest
 
 printf "\n%-18s %-15s %-15s %-15s\n" " Node Name" "Upload" "Download" "Latency"
 echo "-------------------------------------------------------------"
 
 run_test() {
     local name=$1
-    local args=$2
+    local id=$2
+    local cmd="./speedtest --accept-license --accept-gdpr --format=json"
     
-    # Run speedtest (tambah --secure untuk fix ssl issue)
-    result=$(./speedtest-cli $args --secure --simple 2>/dev/null)
+    # Jika ada ID server, tambahkan flag -s
+    if [[ -n "$id" ]]; then
+        cmd="$cmd -s $id"
+    fi
+
+    # Eksekusi command
+    output=$(eval $cmd 2>/dev/null)
     
-    if [[ -n "$result" ]]; then
-        ping=$(echo "$result" | awk '/Ping/ {print $2 " ms"}')
-        dl=$(echo "$result" | awk '/Download/ {print $2 " Mbps"}')
-        ul=$(echo "$result" | awk '/Upload/ {print $2 " Mbps"}')
-        printf " %-18s %-15s %-15s %-15s\n" "$name" "$ul" "$dl" "$ping"
+    # Parse JSON output menggunakan grep/sed (biar gak perlu install jq)
+    if [[ -n "$output" ]]; then
+        # Ambil nilai Ping
+        ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
+        # Ambil Download (bytes) convert to Mbps
+        dl_raw=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
+        # Ambil Upload (bytes) convert to Mbps
+        ul_raw=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
+
+        # Hitung Matematika Sederhana (Bytes ke Mbps: val * 8 / 1000000)
+        dl_calc=$(awk "BEGIN {printf \"%.2f\", $dl_raw * 8 / 1000000}")
+        ul_calc=$(awk "BEGIN {printf \"%.2f\", $ul_raw * 8 / 1000000}")
+        
+        printf " %-18s %-15s %-15s %-15s\n" "$name" "$ul_calc Mbps" "$dl_calc Mbps" "$ping ms"
     else
-         # Jika gagal, coba print error debug ke file terpisah
-         printf " %-18s %-15s %-15s %-15s\n" "$name" "Fail" "Fail" "Timeout"
+        printf " %-18s %-15s %-15s %-15s\n" "$name" "Fail" "Fail" "Timeout"
     fi
 }
 
-# 1. Test Server Terdekat (Otomatis) - Paling akurat
+# 1. Test Auto (Server Terdekat & Terbaik)
 run_test "Closest/Auto" ""
 
-# 2. Test Server Spesifik (Jika ini fail, berarti servernya down/blokir)
-# Singapore (Singtel)
-run_test "Singapore" "--server 13623"
-# US (Los Angeles)
-run_test "USA (LA)" "--server 17381"
+# 2. Test Spesifik (Singapore - Singtel)
+# Note: ID Server official mungkin beda dgn python, kita coba auto-detect server SG
+# Jika error, script akan tetap jalan.
+run_test "Singapore" "13623"
 
-rm speedtest-cli
+# Cleanup file sampah
+rm speedtest speedtest.tgz speedtest.md speedtest.5 2>/dev/null
+
 echo "------------------------------------------------------------------"
 echo -e " Done."
 echo ""
