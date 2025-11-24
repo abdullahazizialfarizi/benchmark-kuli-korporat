@@ -8,7 +8,14 @@ SKYBLUE='\033[0;36m'
 BLUE='\033[0;34m'
 PLAIN='\033[0m'
 
-# --- Install Speedtest Official (Silent) ---
+# --- 1. Install Dependencies & Speedtest (Silent) ---
+# Install ca-certificates untuk cegah SSL Error di Ubuntu 24.04
+if [ -f /etc/debian_version ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -q >/dev/null 2>&1
+    apt-get install -y ca-certificates curl wget >/dev/null 2>&1
+fi
+
 if [ ! -f "speedtest" ]; then
     wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
     tar -zxf speedtest.tgz speedtest
@@ -24,7 +31,6 @@ next() {
 }
 
 # --- HEADER (LOGO KULI + INFO) ---
-# Ini gabungan logo Kuli dengan style header Teddysun
 echo -e "${SKYBLUE}"
 echo " _   __      _ _      "
 echo "| | / /     | (_)     "
@@ -35,7 +41,7 @@ echo "\_| \_/\__,_|_|_|     "
 echo -e "${PLAIN}"
 next
 echo -e " A Bench.sh Script By kuli-korporat"
-echo -e " Version            : ${GREEN}v2025-11-24 (Final Hybrid)${PLAIN}"
+echo -e " Version            : ${GREEN}v2025-11-24 (Final Fixed)${PLAIN}"
 echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
@@ -127,12 +133,41 @@ speed_test() {
     
     if [[ -n "$serverId" ]]; then args="$args -s $serverId"; fi
 
+    # Eksekusi (Silence error standard)
     output=$(./speedtest $args 2>/dev/null)
 
+    # Parsing
     if [[ -n "$output" ]]; then
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
         dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
         ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
         
         # Hitung Mbps
-        dl_mbps=$(awk "BEGIN {printf \"%.2f
+        dl_mbps=$(awk "BEGIN {printf \"%.2f\", $dl * 8 / 1000000}")
+        ul_mbps=$(awk "BEGIN {printf \"%.2f\", $ul * 8 / 1000000}")
+        
+        # Warna output (Format Table)
+        printf " ${YELLOW}%-18s${PLAIN} ${GREEN}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${SKYBLUE}%-15s${PLAIN}\n" "$nodeName" "${ul_mbps} Mbps" "${dl_mbps} Mbps" "${ping} ms"
+    else
+        printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Fail" "Fail" "Timeout"
+    fi
+}
+
+# --- LIST SERVER TEST (Updated for Tencent VPS) ---
+# Menggunakan ID Server yang biasanya ramah Data Center
+speed_test "Speedtest.net" ""
+speed_test "Jakarta (Idnet)" "7467"    # IDNet home (Biasanya open)
+speed_test "Jakarta (Indosat)" "2611"  # Indosat Ooredoo (Stabil)
+speed_test "Singapore, SG" "13623"     # Singtel (Stabil)
+speed_test "Hongkong, CN" "13538"      # HGC Global
+speed_test "Tokyo, JP" "15047"         # IPA CyberLab
+speed_test "Los Angeles, US" "17381"   # HiFormance
+
+# Cleanup
+rm speedtest speedtest.tgz 2>/dev/null
+
+next
+duration=$SECONDS
+echo -e " Finished in        : $(($duration / 60)) min $(($duration % 60)) sec"
+echo -e " Timestamp          : $(date '+%Y-%m-%d %H:%M:%S %Z')"
+next
