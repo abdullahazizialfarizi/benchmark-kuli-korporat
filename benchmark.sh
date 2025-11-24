@@ -8,26 +8,20 @@ SKYBLUE='\033[0;36m'
 BLUE='\033[0;34m'
 PLAIN='\033[0m'
 
-# --- 1. JURUS PAMUNGKAS: Install via Official Repository ---
-# Ini akan memastikan speedtest cocok 100% dengan Ubuntu 24.04
-echo -e "${YELLOW}Installing Official Speedtest from Repo...${PLAIN}"
+# --- 1. PREPARATION: Download Binary (Mesin V5) ---
+# Kita download manual ke folder saat ini, karena ini yang terbukti jalan di V5
+if [ -f "speedtest" ]; then rm speedtest; fi
 
-if [ -f /etc/debian_version ]; then
-    export DEBIAN_FRONTEND=noninteractive
-    # Install syarat utama
-    apt-get update -q >/dev/null 2>&1
-    apt-get install -y curl gnupg1 apt-transport-https dirmngr >/dev/null 2>&1
-    
-    # Hapus versi lama/rusak
-    rm -rf /etc/apt/sources.list.d/speedtest.list
-    apt-get remove -y speedtest >/dev/null 2>&1
-    rm -f speedtest speedtest.tgz
-    
-    # Tambahkan Repo Resmi Ookla
-    curl -s https://install.speedtest.net/app/cli/install.deb.sh | bash >/dev/null 2>&1
-    
-    # Install Binary
-    apt-get install -y speedtest >/dev/null 2>&1
+# Download Ookla Binary Official
+wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+
+if [ -f speedtest.tgz ]; then
+    tar -zxf speedtest.tgz speedtest
+    chmod +x speedtest
+    rm speedtest.tgz speedtest.md speedtest.5 2>/dev/null
+else
+    echo "Error: Failed to download speedtest binary."
+    exit 1
 fi
 
 clear
@@ -37,7 +31,7 @@ next() {
     printf "%-70s\n" "-" | sed 's/ /-/g'
 }
 
-# --- HEADER (LOGO KULI + INFO) ---
+# --- HEADER (LOGO KULI) ---
 echo -e "${SKYBLUE}"
 echo " _   __      _ _      "
 echo "| | / /     | (_)     "
@@ -48,7 +42,7 @@ echo "\_| \_/\__,_|_|_|     "
 echo -e "${PLAIN}"
 next
 echo -e " A Bench.sh Script By kuli-korporat"
-echo -e " Version            : ${GREEN}v2025-11-24 (V12 Native Install)${PLAIN}"
+echo -e " Version            : ${GREEN}v2025-11-24 (V13 Reborn)${PLAIN}"
 echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
@@ -140,21 +134,20 @@ speed_test() {
     
     if [[ -n "$serverId" ]]; then args="$args -s $serverId"; fi
 
-    # Cek apakah command speedtest terinstall di system
-    if ! command -v speedtest &> /dev/null; then
-         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Not Installed" "Error" "Error"
+    # Pastikan file binary ada di folder saat ini (V5 Method)
+    if [ ! -f "./speedtest" ]; then
+         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Binary Missing" "Error" "Error"
          return
     fi
 
-    # Execute (Langsung panggil command system, bukan ./)
-    output=$(speedtest $args 2>/dev/null)
+    # Execute using local binary ./speedtest
+    output=$(./speedtest $args 2>/dev/null)
 
     if [[ -n "$output" ]]; then
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
         dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
         ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
         
-        # Validasi jika output kosong
         if [[ -z "$ping" ]]; then
              printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Error" "Fail" "Timeout"
              return
@@ -170,13 +163,18 @@ speed_test() {
 }
 
 # --- LIST SERVER TEST ---
+# 1. Auto Select (Paling Penting & Paling Stabil)
 speed_test "Speedtest.net" ""
-speed_test "Jakarta (Idnet)" "7467"    
-speed_test "Jakarta (Indosat)" "2611" 
-speed_test "Singapore, SG" "13623"     
-speed_test "Hongkong, CN" "13538"      
-speed_test "Tokyo, JP" "15047"         
-speed_test "Los Angeles, US" "17381"   
+
+# 2. Server Manual (Gunakan server SG yang sukses di V5)
+speed_test "Jakarta, ID" "11362"   
+speed_test "Singapore, SG" "13623" 
+speed_test "Hongkong, CN" "1536"    
+speed_test "Tokyo, JP" "15047"
+speed_test "Los Angeles, US" "17381"
+
+# Cleanup
+rm speedtest 2>/dev/null
 
 next
 duration=$SECONDS
