@@ -18,7 +18,7 @@ echo "|    \| | | | | |     "
 echo "| |\  \ |_| | | |     "
 echo "\_| \_/\__,_|_|_|     "
 echo -e "${NC}"
-echo -e " SERVER BENCHMARK V5.0 (Official Engine)"
+echo -e " SERVER BENCHMARK V6.0 (Complete)"
 echo -e " https://github.com/abdullahazizialfarizi"
 echo "------------------------------------------------------------------"
 
@@ -35,12 +35,20 @@ CPU_MODEL=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | he
 CPU_CORES=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
 UPTIME=$(uptime -p)
 
+# Detect ISP & Location (Penting buat analisis latency)
+ISP_INFO=$(curl -s http://ip-api.com/json)
+ISP_ORG=$(echo $ISP_INFO | grep -oP '(?<="isp":")[^"]*' || echo "Unknown")
+ISP_LOC=$(echo $ISP_INFO | grep -oP '(?<="country":")[^"]*' || echo "Unknown")
+ISP_CITY=$(echo $ISP_INFO | grep -oP '(?<="city":")[^"]*' || echo "Unknown")
+
 printf " ${CYAN}%-15s${NC} : %s\n" "Hostname" "$HOSTNAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "OS System" "$OS_NAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "Kernel" "$KERNEL"
 printf " ${CYAN}%-15s${NC} : %s\n" "Uptime" "$UPTIME"
 printf " ${CYAN}%-15s${NC} : %s\n" "CPU Model" "$CPU_MODEL"
 printf " ${CYAN}%-15s${NC} : %s Cores\n" "CPU Cores" "$CPU_CORES"
+printf " ${CYAN}%-15s${NC} : %s\n" "ISP / Org" "$ISP_ORG"
+printf " ${CYAN}%-15s${NC} : %s, %s\n" "Location" "$ISP_CITY" "$ISP_LOC"
 echo "------------------------------------------------------------------"
 
 # --- 2. DISK I/O TEST ---
@@ -54,13 +62,12 @@ echo "------------------------------------------------------------------"
 # --- 3. NETWORK SPEEDTEST (OFFICIAL BINARY) ---
 echo -e " ${GREEN}[ Testing Network Speed ]${NC}"
 
-# Download Official Speedtest Binary (Linux x86_64)
-# Ini jauh lebih stabil daripada python script
-wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
-
-# Extract hanya file binary-nya
-tar -zxf speedtest.tgz speedtest
-chmod +x speedtest
+# Download Official Speedtest Binary (Linux x86_64) if not exists
+if [ ! -f "speedtest" ]; then
+    wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+    tar -zxf speedtest.tgz speedtest
+    chmod +x speedtest
+fi
 
 printf "\n%-18s %-15s %-15s %-15s\n" " Node Name" "Upload" "Download" "Latency"
 echo "-------------------------------------------------------------"
@@ -70,24 +77,18 @@ run_test() {
     local id=$2
     local cmd="./speedtest --accept-license --accept-gdpr --format=json"
     
-    # Jika ada ID server, tambahkan flag -s
     if [[ -n "$id" ]]; then
         cmd="$cmd -s $id"
     fi
 
-    # Eksekusi command
     output=$(eval $cmd 2>/dev/null)
     
-    # Parse JSON output menggunakan grep/sed (biar gak perlu install jq)
     if [[ -n "$output" ]]; then
-        # Ambil nilai Ping
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
-        # Ambil Download (bytes) convert to Mbps
         dl_raw=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
-        # Ambil Upload (bytes) convert to Mbps
         ul_raw=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
-
-        # Hitung Matematika Sederhana (Bytes ke Mbps: val * 8 / 1000000)
+        
+        # Kalkulasi Mbps
         dl_calc=$(awk "BEGIN {printf \"%.2f\", $dl_raw * 8 / 1000000}")
         ul_calc=$(awk "BEGIN {printf \"%.2f\", $ul_raw * 8 / 1000000}")
         
@@ -97,15 +98,15 @@ run_test() {
     fi
 }
 
-# 1. Test Auto (Server Terdekat & Terbaik)
+# 1. Test Auto (Lokal)
 run_test "Closest/Auto" ""
 
-# 2. Test Spesifik (Singapore - Singtel)
-# Note: ID Server official mungkin beda dgn python, kita coba auto-detect server SG
-# Jika error, script akan tetap jalan.
+# 2. Test Internasional
 run_test "Singapore" "13623"
+run_test "Tokyo, JP" "15047"
+run_test "Los Angeles, US" "17381"
 
-# Cleanup file sampah
+# Cleanup
 rm speedtest speedtest.tgz speedtest.md speedtest.5 2>/dev/null
 
 echo "------------------------------------------------------------------"
