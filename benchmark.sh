@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Colors (Teddysun Style) ---
+# --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
@@ -23,10 +23,19 @@ next() {
     printf "%-70s\n" "-" | sed 's/ /-/g'
 }
 
-# --- HEADER ---
+# --- HEADER (LOGO KULI + INFO) ---
+# Ini gabungan logo Kuli dengan style header Teddysun
+echo -e "${SKYBLUE}"
+echo " _   __      _ _      "
+echo "| | / /     | (_)     "
+echo "| |/ / _   _| |_      "
+echo "|    \| | | | | |     "
+echo "| |\  \ |_| | | |     "
+echo "\_| \_/\__,_|_|_|     "
+echo -e "${PLAIN}"
 next
 echo -e " A Bench.sh Script By kuli-korporat"
-echo -e " Version            : ${GREEN}v2025-11-24${PLAIN}"
+echo -e " Version            : ${GREEN}v2025-11-24 (Final Hybrid)${PLAIN}"
 echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
@@ -61,7 +70,6 @@ tcp_cc=$(sysctl net.ipv4.tcp_congestion_control | awk '{print $3}')
 virt_type=$(systemd-detect-virt 2>/dev/null || echo "kvm")
 
 ipv4=$(curl -s -4 --connect-timeout 2 google.com >/dev/null && echo "${GREEN}✓ Online${PLAIN}" || echo "${RED}✗ Offline${PLAIN}")
-# Fix deteksi IPv6 (Kadang false negative di V7)
 ipv6=$(curl -s -6 --connect-timeout 2 google.com >/dev/null && echo "${GREEN}✓ Online${PLAIN}" || echo "${RED}✗ Offline${PLAIN}")
 
 isp_json=$(curl -s http://ip-api.com/json)
@@ -125,31 +133,6 @@ speed_test() {
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
         dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
         ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
-        dl_mbps=$(awk "BEGIN {printf \"%.2f\", $dl * 8 / 1000000}")
-        ul_mbps=$(awk "BEGIN {printf \"%.2f\", $ul * 8 / 1000000}")
         
-        # Warna output sesuai screenshot referensi
-        printf " ${YELLOW}%-18s${PLAIN} ${GREEN}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${SKYBLUE}%-15s${PLAIN}\n" "$nodeName" "${ul_mbps} Mbps" "${dl_mbps} Mbps" "${ping} ms"
-    else
-        printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Fail" "Fail" "Timeout"
-    fi
-}
-
-# --- List Server (Updated - Stabil ID) ---
-# Saya ganti ID server yang sering down/timeout dengan yang lebih stabil
-speed_test "Speedtest.net" ""  
-speed_test "Jakarta, ID" "2611"    # Indosat Ooredoo (Lebih stabil dari Telkom di VPS luar)
-speed_test "Singapore, SG" "13623" # Singtel (Sudah OK)
-speed_test "Amsterdam, NL" "2987"  # NFOrce (Jauh lebih stabil drpd ID 50896)
-speed_test "Shanghai, CN" "24447"  # China Mobile (Tetap berat krn GFW, tapi kita coba)
-speed_test "Hongkong, CN" "13538"  # HGC Global (Ganti STC yg sering down)
-speed_test "Mumbai, IN" "10839"    # Jio (Ganti Vi India yg sering timeout)
-speed_test "Los Angeles, US" "17381" # Tambahan biar keren
-
-rm speedtest speedtest.tgz 2>/dev/null
-
-next
-duration=$SECONDS
-echo -e " Finished in        : $(($duration / 60)) min $(($duration % 60)) sec"
-echo -e " Timestamp          : $(date '+%Y-%m-%d %H:%M:%S %Z')"
-next
+        # Hitung Mbps
+        dl_mbps=$(awk "BEGIN {printf \"%.2f
