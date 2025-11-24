@@ -3,6 +3,8 @@
 # --- Colors ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
@@ -16,7 +18,7 @@ echo "|    \| | | | | |     "
 echo "| |\  \ |_| | | |     "
 echo "\_| \_/\__,_|_|_|     "
 echo -e "${NC}"
-echo -e " SERVER BENCHMARK V3.0 (Fixed)"
+echo -e " SERVER BENCHMARK V4.0 (Auto-Fix)"
 echo -e " https://github.com/abdullahazizialfarizi"
 echo "------------------------------------------------------------------"
 
@@ -33,7 +35,6 @@ CPU_MODEL=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | he
 CPU_CORES=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
 UPTIME=$(uptime -p)
 
-# Menggunakan printf terpisah agar aman dari error syntax
 printf " ${CYAN}%-15s${NC} : %s\n" "Hostname" "$HOSTNAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "OS System" "$OS_NAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "Kernel" "$KERNEL"
@@ -56,8 +57,7 @@ echo -e " ${GREEN}[ Testing Network Speed ]${NC}"
 # Install Python3 jika belum ada
 if ! command -v python3 &> /dev/null; then
     echo " Installing Python3..."
-    if [ -f /etc/debian_version ]; then apt-get update -q && apt-get install -y python3 -q
-    elif [ -f /etc/redhat-release ]; then yum install -y python3 -q; fi
+    apt-get update -q && apt-get install -y python3 -q
 fi
 
 # Download script speedtest
@@ -69,8 +69,10 @@ echo "-------------------------------------------------------------"
 
 run_test() {
     local name=$1
-    local id=$2
-    result=$(./speedtest-cli --server $id --simple 2>/dev/null)
+    local args=$2
+    
+    # Run speedtest (tambah --secure untuk fix ssl issue)
+    result=$(./speedtest-cli $args --secure --simple 2>/dev/null)
     
     if [[ -n "$result" ]]; then
         ping=$(echo "$result" | awk '/Ping/ {print $2 " ms"}')
@@ -78,14 +80,19 @@ run_test() {
         ul=$(echo "$result" | awk '/Upload/ {print $2 " Mbps"}')
         printf " %-18s %-15s %-15s %-15s\n" "$name" "$ul" "$dl" "$ping"
     else
+         # Jika gagal, coba print error debug ke file terpisah
          printf " %-18s %-15s %-15s %-15s\n" "$name" "Fail" "Fail" "Timeout"
     fi
 }
 
-# Run Tests
-run_test "Jakarta" "11362"
-run_test "Singapore" "13623"
-run_test "Tokyo" "15047"
+# 1. Test Server Terdekat (Otomatis) - Paling akurat
+run_test "Closest/Auto" ""
+
+# 2. Test Server Spesifik (Jika ini fail, berarti servernya down/blokir)
+# Singapore (Singtel)
+run_test "Singapore" "--server 13623"
+# US (Los Angeles)
+run_test "USA (LA)" "--server 17381"
 
 rm speedtest-cli
 echo "------------------------------------------------------------------"
