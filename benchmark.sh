@@ -20,7 +20,7 @@ echo "|    \| | | | | |     "
 echo "| |\  \ |_| | | |     "
 echo "\_| \_/\__,_|_|_|     "
 echo -e "${NC}"
-echo -e " SERVER BENCHMARK V1.0"
+echo -e " SERVER BENCHMARK V1.0 (Fixed)"
 echo -e " https://github.com/abdullahazizialfarizi"
 echo "------------------------------------------------------------------"
 
@@ -35,23 +35,20 @@ fi
 # Ambil Info Hardware
 KERNEL=$(uname -r)
 HOSTNAME=$(hostname)
+# Cek CPU Model (Handle error jika kosong)
 CPU_MODEL=$(awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//')
+[ -z "$CPU_MODEL" ] && CPU_MODEL="Unknown CPU"
+
 CPU_CORES=$(awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo)
-RAM_USED=$(free -h | awk '/^Mem:/ {print $3}')
-RAM_TOTAL=$(free -h | awk '/^Mem:/ {print $2}')
-SWAP_USED=$(free -h | awk '/^Swap:/ {print $3}')
-SWAP_TOTAL=$(free -h | awk '/^Swap:/ {print $2}')
 UPTIME=$(uptime -p)
 
-# Tampilkan Info (Menggunakan printf agar rapih)
+# Tampilkan Info (Format printf yang aman dari tanda kurung)
 printf " ${CYAN}%-15s${NC} : %s\n" "Hostname" "$HOSTNAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "OS System" "$OS_NAME"
 printf " ${CYAN}%-15s${NC} : %s\n" "Kernel" "$KERNEL"
 printf " ${CYAN}%-15s${NC} : %s\n" "Uptime" "$UPTIME"
 printf " ${CYAN}%-15s${NC} : %s\n" "CPU Model" "$CPU_MODEL"
-printf " ${CYAN}%-15s${NC} : %s ($CPU_CORES Cores)\n" "CPU Cores" "$CPU_CORES"
-printf " ${CYAN}%-15s${NC} : %s / %s\n" "RAM" "$RAM_USED" "$RAM_TOTAL"
-printf " ${CYAN}%-15s${NC} : %s / %s\n" "SWAP" "$SWAP_USED" "$SWAP_TOTAL"
+printf " ${CYAN}%-15s${NC} : %s Cores\n" "CPU Cores" "$CPU_CORES"
 echo "------------------------------------------------------------------"
 
 # --- 2. DISK I/O TEST ---
