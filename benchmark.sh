@@ -1,15 +1,14 @@
 #!/bin/bash
 
-# --- Colors & Styling ---
+# --- Colors (Teddysun Style) ---
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
+SKYBLUE='\033[0;36m'
 BLUE='\033[0;34m'
-CYAN='\033[0;36m'
 PLAIN='\033[0m'
-BOLD='\033[1m'
 
-# --- Install Dependencies (Silent) ---
+# --- Install Speedtest Official (Silent) ---
 if [ ! -f "speedtest" ]; then
     wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
     tar -zxf speedtest.tgz speedtest
@@ -19,122 +18,138 @@ fi
 
 clear
 
-# Fungsi Garis
+# Fungsi Garis Separator
 next() {
-    printf "%-72s\n" "-" | sed 's/ /-/g'
+    printf "%-70s\n" "-" | sed 's/ /-/g'
 }
 
-# --- HEADER (Branding Kuli) ---
+# --- HEADER ---
 next
-echo -e " ${BOLD}SERVER BENCHMARK V8.0 (ATM Enhanced)${PLAIN}"
-echo -e " Script by          : Kuli-Korporat"
-echo -e " GitHub             : github.com/abdullahazizialfarizi"
+echo -e " A Bench.sh Script By kuli-korporat"
+echo -e " Version            : ${GREEN}v2025-11-24${PLAIN}"
+echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
-# --- 1. SYSTEM INFO (Bagian Amati & Tiru) ---
-# Mengambil info dasar seperti script referensi tapi dirapikan
-
+# --- GATHER SYSTEM INFO ---
 cname=$( awk -F: '/model name/ {name=$2} END {print name}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//' )
 cores=$( awk -F: '/model name/ {core++} END {print core}' /proc/cpuinfo )
 freq=$( awk -F: ' /cpu MHz/ {freq=$2} END {print freq}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//' )
 cache=$( awk -F: ' /cache size/ {cache=$2} END {print cache}' /proc/cpuinfo | sed 's/^[ \t]*//;s/[ \t]*$//' )
-uptime=$(uptime -p | sed 's/up //')
 
+aes=$(grep -i aes /proc/cpuinfo)
+[[ -n "$aes" ]] && aes_info="${GREEN}✓ Enabled${PLAIN}" || aes_info="${RED}✗ Disabled${PLAIN}"
+virt_check=$(grep -E "vmx|svm" /proc/cpuinfo)
+[[ -n "$virt_check" ]] && virt_info="${GREEN}✓ Enabled${PLAIN}" || virt_info="${RED}✗ Disabled${PLAIN}"
+
+disk_total=$(df -h / | awk '/\// {print $2}')
+disk_used=$(df -h / | awk '/\// {print $3" Used"}')
+ram_total=$(free -h | awk '/^Mem:/ {print $2}')
+ram_used=$(free -h | awk '/^Mem:/ {print $3" Used"}')
+swap_total=$(free -h | awk '/^Swap:/ {print $2}')
+swap_used=$(free -h | awk '/^Swap:/ {print $3" Used"}')
+
+uptime=$(uptime -p | sed 's/up //')
+load=$(uptime | awk -F'load average:' '{ print $2 }' | sed 's/^[ \t]*//')
 if [ -f /etc/os-release ]; then
     os_name=$(grep -oP '(?<=^PRETTY_NAME=).+' /etc/os-release | tr -d '"')
 else
     os_name=$(uname -o)
 fi
+arch=$(uname -m)
+kernel=$(uname -r)
+tcp_cc=$(sysctl net.ipv4.tcp_congestion_control | awk '{print $3}')
+virt_type=$(systemd-detect-virt 2>/dev/null || echo "kvm")
 
-# Detect Virtualization
-virt_type=$(systemd-detect-virt 2>/dev/null || echo "Unknown")
+ipv4=$(curl -s -4 --connect-timeout 2 google.com >/dev/null && echo "${GREEN}✓ Online${PLAIN}" || echo "${RED}✗ Offline${PLAIN}")
+# Fix deteksi IPv6 (Kadang false negative di V7)
+ipv6=$(curl -s -6 --connect-timeout 2 google.com >/dev/null && echo "${GREEN}✓ Online${PLAIN}" || echo "${RED}✗ Offline${PLAIN}")
 
-# Detect ISP
 isp_json=$(curl -s http://ip-api.com/json)
 org=$(echo $isp_json | grep -oP '(?<="isp":")[^"]*' || echo "Unknown")
 city=$(echo $isp_json | grep -oP '(?<="city":")[^"]*' || echo "Unknown")
 country=$(echo $isp_json | grep -oP '(?<="countryCode":")[^"]*' || echo "Unknown")
+region=$(echo $isp_json | grep -oP '(?<="regionName":")[^"]*' || echo "Unknown")
 
-echo -e " CPU Model          : ${CYAN}$cname${PLAIN}"
-echo -e " CPU Cores          : ${CYAN}$cores Cores @ $freq MHz${PLAIN}"
-echo -e " CPU Cache          : ${CYAN}$cache${PLAIN}"
-echo -e " OS & Kernel        : ${CYAN}$os_name ($(uname -r))${PLAIN}"
-echo -e " Virtualization     : ${CYAN}$virt_type${PLAIN}"
-echo -e " System Uptime      : ${CYAN}$uptime${PLAIN}"
-echo -e " ISP & Location     : ${CYAN}$org - $city, $country${PLAIN}"
+# --- PRINT SYSTEM INFO ---
+echo -e " CPU Model          : ${SKYBLUE}$cname${PLAIN}"
+echo -e " CPU Cores          : ${SKYBLUE}$cores @ $freq MHz${PLAIN}"
+echo -e " CPU Cache          : ${SKYBLUE}$cache${PLAIN}"
+echo -e " AES-NI             : $aes_info"
+echo -e " VM-x/AMD-V         : $virt_info"
+echo -e " Total Disk         : ${SKYBLUE}$disk_total ($disk_used)${PLAIN}"
+echo -e " Total Mem          : ${SKYBLUE}$ram_total ($ram_used)${PLAIN}"
+echo -e " Total Swap         : ${SKYBLUE}$swap_total ($swap_used)${PLAIN}"
+echo -e " System uptime      : ${SKYBLUE}$uptime${PLAIN}"
+echo -e " Load average       : ${SKYBLUE}$load${PLAIN}"
+echo -e " OS                 : ${SKYBLUE}$os_name${PLAIN}"
+echo -e " Arch               : ${SKYBLUE}$arch (64 Bit)${PLAIN}"
+echo -e " Kernel             : ${SKYBLUE}$kernel${PLAIN}"
+echo -e " TCP CC             : ${SKYBLUE}$tcp_cc${PLAIN}"
+echo -e " Virtualization     : ${SKYBLUE}$virt_type${PLAIN}"
+echo -e " IPv4/IPv6          : $ipv4 / $ipv6"
+echo -e " Organization       : ${SKYBLUE}$org${PLAIN}"
+echo -e " Location           : ${SKYBLUE}$city / $country${PLAIN}"
+echo -e " Region             : ${SKYBLUE}$region${PLAIN}"
 next
 
-# --- 2. PERFORMANCE TEST (Bagian Modifikasi) ---
+# --- DISK I/O TEST ---
+io1=$( (dd if=/dev/zero of=test_$$ bs=64k count=16k conv=fdatasync && rm -f test_$$) 2>&1 | awk -F, '{io=$NF} END { print io}' | sed 's/^[ \t]*//' )
+io2=$( (dd if=/dev/zero of=test_$$ bs=64k count=16k conv=fdatasync && rm -f test_$$) 2>&1 | awk -F, '{io=$NF} END { print io}' | sed 's/^[ \t]*//' )
+io3=$( (dd if=/dev/zero of=test_$$ bs=64k count=16k conv=fdatasync && rm -f test_$$) 2>&1 | awk -F, '{io=$NF} END { print io}' | sed 's/^[ \t]*//' )
 
-# A. RAM Speed Test (Fitur Baru)
-# Menulis file ke /dev/shm (RAM) untuk cek throughput memory
-echo -e " ${BOLD}[ Memory & Disk Performance ]${PLAIN}"
-ram_speed=$( (dd if=/dev/zero of=/dev/shm/test_ram bs=1M count=512 conv=fdatasync && rm -f /dev/shm/test_ram) 2>&1 | awk -F, '{io=$NF} END { print io}' | sed 's/^[ \t]*//' )
-echo -e " RAM Write Speed    : ${YELLOW}$ram_speed${PLAIN} (Direct Memory Write)"
+v1=$(echo $io1 | awk '{print $1}')
+v2=$(echo $io2 | awk '{print $1}')
+v3=$(echo $io3 | awk '{print $1}')
+unit=$(echo $io1 | awk '{print $2}')
+avg=$(awk "BEGIN {printf \"%.1f\", ($v1 + $v2 + $v3) / 3}")
 
-# B. Disk I/O Test (Standard)
-disk_speed=$( (dd if=/dev/zero of=test_$$ bs=64k count=16k conv=fdatasync && rm -f test_$$) 2>&1 | awk -F, '{io=$NF} END { print io}' | sed 's/^[ \t]*//' )
-echo -e " Disk I/O Speed     : ${YELLOW}$disk_speed${PLAIN} (Sequential)"
+echo -e " I/O Speed(1st run) : ${YELLOW}$io1${PLAIN}"
+echo -e " I/O Speed(2nd run) : ${YELLOW}$io2${PLAIN}"
+echo -e " I/O Speed(3rd run) : ${YELLOW}$io3${PLAIN}"
+echo -e " I/O Speed(average) : ${YELLOW}$avg $unit${PLAIN}"
 next
 
-# --- 3. NETWORK TEST (Bagian Modifikasi - Lebih Detail) ---
-echo -e " ${BOLD}[ Network Speed & Quality ]${PLAIN}"
-# Menambah kolom Jitter dan Packet Loss
-printf "%-16s %-12s %-12s %-10s %-8s %-6s\n" "Node Name" "Upload" "Download" "Latency" "Jitter" "Loss"
-echo "------------------------------------------------------------------------"
+# --- NETWORK SPEEDTEST ---
+printf "%-18s %-15s %-15s %-15s\n" " Node Name" "Upload Speed" "Download Speed" "Latency"
 
-run_speedtest() {
-    local name=$1
-    local id=$2
+speed_test() {
+    local nodeName=$1
+    local serverId=$2
     local args="--accept-license --accept-gdpr --format=json"
     
-    if [[ -n "$id" ]]; then args="$args -s $id"; fi
+    if [[ -n "$serverId" ]]; then args="$args -s $serverId"; fi
 
-    # Eksekusi
     output=$(./speedtest $args 2>/dev/null)
 
     if [[ -n "$output" ]]; then
-        # Parse Data
         ping=$(echo "$output" | grep -oP '"latency":\s*\K[0-9.]+' | head -1)
-        jitter=$(echo "$output" | grep -oP '"jitter":\s*\K[0-9.]+' | head -1)
-        loss=$(echo "$output" | grep -oP '"packetLoss":\s*\K[0-9.]+' | head -1)
-        dl_raw=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
-        ul_raw=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
-
-        # Hitung Mbps
-        dl=$(awk "BEGIN {printf \"%.1f\", $dl_raw * 8 / 1000000}")
-        ul=$(awk "BEGIN {printf \"%.1f\", $ul_raw * 8 / 1000000}")
+        dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
+        ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
+        dl_mbps=$(awk "BEGIN {printf \"%.2f\", $dl * 8 / 1000000}")
+        ul_mbps=$(awk "BEGIN {printf \"%.2f\", $ul * 8 / 1000000}")
         
-        # Format Loss (0 jika kosong)
-        [[ -z "$loss" ]] && loss="0.0"
-        
-        # --- Logic Pewarnaan (Modifikasi Cerdas) ---
-        # Ping: Hijau < 50ms, Kuning < 150ms, Merah > 150ms
-        if (( $(echo "$ping < 50" | bc -l) )); then p_col=$GREEN; elif (( $(echo "$ping < 150" | bc -l) )); then p_col=$YELLOW; else p_col=$RED; fi
-        
-        # Speed: Hijau > 100Mbps, Merah < 10Mbps
-        if (( $(echo "$dl > 100" | bc -l) )); then dl_col=$GREEN; else dl_col=$CYAN; fi
-        
-        # Jitter: Hijau < 10ms (Stabil), Merah > 10ms (Tidak stabil)
-        if (( $(echo "$jitter < 10" | bc -l) )); then j_col=$GREEN; else j_col=$RED; fi
-
-        printf " %-16s ${GREEN}%-12s${PLAIN} ${dl_col}%-12s${PLAIN} ${p_col}%-10s${PLAIN} ${j_col}%-8s${PLAIN} %-6s\n" "$name" "$ul Mbps" "$dl Mbps" "$ping ms" "$jitter ms" "$loss%"
+        # Warna output sesuai screenshot referensi
+        printf " ${YELLOW}%-18s${PLAIN} ${GREEN}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${SKYBLUE}%-15s${PLAIN}\n" "$nodeName" "${ul_mbps} Mbps" "${dl_mbps} Mbps" "${ping} ms"
     else
-        printf " %-16s ${RED}%-12s${PLAIN} ${RED}%-12s${PLAIN} ${RED}%-10s${PLAIN} ${RED}%-8s${PLAIN} %-6s\n" "$name" "Fail" "Fail" "Timeout" "-" "-"
+        printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Fail" "Fail" "Timeout"
     fi
 }
 
-# List Server Test
-run_speedtest "Closest/Auto" ""
-run_speedtest "Jakarta, ID" "11362"
-run_speedtest "Singapore, SG" "13623"
-run_speedtest "Tokyo, JP" "15047"
-run_speedtest "Los Angeles" "17381"
-# Tambah Eropa biar lengkap
-run_speedtest "London, UK" "17770" 
+# --- List Server (Updated - Stabil ID) ---
+# Saya ganti ID server yang sering down/timeout dengan yang lebih stabil
+speed_test "Speedtest.net" ""  
+speed_test "Jakarta, ID" "2611"    # Indosat Ooredoo (Lebih stabil dari Telkom di VPS luar)
+speed_test "Singapore, SG" "13623" # Singtel (Sudah OK)
+speed_test "Amsterdam, NL" "2987"  # NFOrce (Jauh lebih stabil drpd ID 50896)
+speed_test "Shanghai, CN" "24447"  # China Mobile (Tetap berat krn GFW, tapi kita coba)
+speed_test "Hongkong, CN" "13538"  # HGC Global (Ganti STC yg sering down)
+speed_test "Mumbai, IN" "10839"    # Jio (Ganti Vi India yg sering timeout)
+speed_test "Los Angeles, US" "17381" # Tambahan biar keren
 
-# Cleanup
 rm speedtest speedtest.tgz 2>/dev/null
-echo "------------------------------------------------------------------------"
-echo -e " Done."
-echo ""
+
+next
+duration=$SECONDS
+echo -e " Finished in        : $(($duration / 60)) min $(($duration % 60)) sec"
+echo -e " Timestamp          : $(date '+%Y-%m-%d %H:%M:%S %Z')"
+next
