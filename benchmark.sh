@@ -51,8 +51,8 @@ echo -e "${CYAN}"
 echo " _  __     _ _      _  "
 echo "| |/ /   _| (_)____| | __"
 echo "| ' / | | | | |_  /| |/ /"
-echo "| . \ |_| | | |/ / |   <   SERVER BENCHMARK"
-echo "|_|\_\__,_|_|_/___||_|\_\  PRO EDITION v2.0"
+echo "| . \ |_| | | |/ / |   <   SERVER BENCHMARK V1.0"
+echo "|_|\_\__,_|_|_/___||_|\_\  
 echo -e "${NC}"
 echo -e " ${WHITE}System Analysis & Network Performance Tool${NC}"
 draw_line
