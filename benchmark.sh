@@ -8,18 +8,29 @@ SKYBLUE='\033[0;36m'
 BLUE='\033[0;34m'
 PLAIN='\033[0m'
 
-# --- 1. Install Dependencies & Speedtest (Silent) ---
+# --- 1. System Preparation (Ubuntu 24.04 Fix) ---
+# Kita install library yang sering hilang di Ubuntu Minimal
 if [ -f /etc/debian_version ]; then
     export DEBIAN_FRONTEND=noninteractive
+    # Update repo sekilas
     apt-get update -q >/dev/null 2>&1
-    apt-get install -y ca-certificates curl wget >/dev/null 2>&1
+    # Install dependencies penting: libidn2-0 wajib untuk Ookla Speedtest
+    apt-get install -y wget curl tar libidn2-0 ca-certificates >/dev/null 2>&1
 fi
 
-if [ ! -f "speedtest" ]; then
-    wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+# --- 2. Install Speedtest Binary ---
+# Hapus yang lama biar fresh
+rm -f speedtest speedtest.tgz
+
+# Download dengan verbose check
+wget -q -O speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+
+if [ -f speedtest.tgz ]; then
     tar -zxf speedtest.tgz speedtest
     chmod +x speedtest
     rm speedtest.tgz speedtest.md speedtest.5 2>/dev/null
+else
+    echo "Error: Gagal download speedtest binary. Cek koneksi internet VPS."
 fi
 
 clear
@@ -40,7 +51,7 @@ echo "\_| \_/\__,_|_|_|     "
 echo -e "${PLAIN}"
 next
 echo -e " A Bench.sh Script By kuli-korporat"
-echo -e " Version            : ${GREEN}v2025-11-24 (Final Fixed)${PLAIN}"
+echo -e " Version            : ${GREEN}v2025-11-24 (V11 Compatibility Fix)${PLAIN}"
 echo -e " Usage              : ${RED}wget -qO- [url] | bash${PLAIN}"
 next
 
@@ -132,6 +143,13 @@ speed_test() {
     
     if [[ -n "$serverId" ]]; then args="$args -s $serverId"; fi
 
+    # Cek apakah file binary ada
+    if [ ! -f "./speedtest" ]; then
+         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "No Binary" "Error" "Error"
+         return
+    fi
+
+    # Execute
     output=$(./speedtest $args 2>/dev/null)
 
     if [[ -n "$output" ]]; then
@@ -139,11 +157,15 @@ speed_test() {
         dl=$(echo "$output" | grep -oP '"download":{"bandwidth":\s*\K[0-9]+' | head -1)
         ul=$(echo "$output" | grep -oP '"upload":{"bandwidth":\s*\K[0-9]+' | head -1)
         
-        # Hitung Mbps
+        # Jika output JSON kosong (berarti error koneksi)
+        if [[ -z "$ping" ]]; then
+             printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Error" "Error" "Timeout"
+             return
+        fi
+
         dl_mbps=$(awk "BEGIN {printf \"%.2f\", $dl * 8 / 1000000}")
         ul_mbps=$(awk "BEGIN {printf \"%.2f\", $ul * 8 / 1000000}")
         
-        # Warna output
         printf " ${YELLOW}%-18s${PLAIN} ${GREEN}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${SKYBLUE}%-15s${PLAIN}\n" "$nodeName" "${ul_mbps} Mbps" "${dl_mbps} Mbps" "${ping} ms"
     else
         printf " ${YELLOW}%-18s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN} ${RED}%-15s${PLAIN}\n" "$nodeName" "Fail" "Fail" "Timeout"
